@@ -1,0 +1,66 @@
+#include <Arduino.h>
+#include <BLEDevice.h>
+#include <BLEUtils.h>
+#include <BLEScan.h>
+#include <BLEClient.h>
+#include <BLEAdvertisedDevice.h>
+
+#define SERVICE_UUID        "12345678-1234-1234-1234-1234567890ab"
+#define CHARACTERISTIC_UUID "abcdefab-1234-5678-1234-abcdefabcdef"
+
+BLEClient* client;
+BLERemoteCharacteristic* remoteCharacteristic;
+const char* senderName = "HelloSender";
+
+bool connectToServer(BLEAdvertisedDevice advertisedDevice) {
+  client = BLEDevice::createClient();
+  if (!client->connect(&advertisedDevice)) {
+    Serial.println("Failed to connect!");
+    return false;
+  }
+
+  BLERemoteService* service = client->getService(SERVICE_UUID);
+  if (!service) {
+    Serial.println("Service not found!");
+    return false;
+  }
+
+  remoteCharacteristic = service->getCharacteristic(CHARACTERISTIC_UUID);
+  if (!remoteCharacteristic || !remoteCharacteristic->canNotify()) {
+    Serial.println("Characteristic not found or cannot notify!");
+    return false;
+  }
+
+  remoteCharacteristic->registerForNotify(
+    [](BLERemoteCharacteristic*, uint8_t* data, size_t length, bool) {
+      String msg = "";
+      for (size_t i = 0; i < length; i++) msg += (char)data[i];
+      Serial.println("Received: " + msg);
+    }
+  );
+
+  Serial.println("Connected to sender!");
+  return true;
+}
+
+class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
+  void onResult(BLEAdvertisedDevice advertisedDevice) override {
+    if (advertisedDevice.getName() == senderName) {
+      BLEDevice::getScan()->stop();
+      connectToServer(advertisedDevice);
+    }
+  }
+};
+
+void setup() {
+  Serial.begin(115200);
+  BLEDevice::init("");
+  BLEScan* scan = BLEDevice::getScan();
+  scan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
+  scan->setActiveScan(true);
+  scan->start(0, false);
+}
+
+void loop() {
+  delay(20);
+}
