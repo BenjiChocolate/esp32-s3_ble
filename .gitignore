@@ -1,0 +1,15 @@
+# ESP-IDF build files
+/build/
+/sdkconfig
+sdkconfig.old
+
+# IDE and editor files
+.vscode/
+*.pyc
+.idea/
+
+# PlatformIO files (if you use it)
+.pio/
+
+# macOS files
+.DS_Store
