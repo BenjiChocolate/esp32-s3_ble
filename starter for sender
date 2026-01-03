@@ -1,0 +1,52 @@
+#include <Arduino.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
+
+// BLE UUIDs
+#define SERVICE_UUID        "12345678-1234-1234-1234-1234567890ab"
+#define CHARACTERISTIC_UUID "abcdefab-1234-5678-1234-abcdefabcdef"
+
+BLECharacteristic* txCharacteristic;
+BLEServer* server;
+
+class ServerCallbacks : public BLEServerCallbacks {
+  void onConnect(BLEServer* pServer) {
+    Serial.println("Receiver connected");
+  }
+  void onDisconnect(BLEServer* pServer) {
+    Serial.println("Receiver disconnected");
+  }
+};
+
+void setup() {
+  Serial.begin(115200);
+
+  BLEDevice::init("HelloSender");
+  server = BLEDevice::createServer();
+  server->setCallbacks(new ServerCallbacks());
+
+  BLEService* service = server->createService(SERVICE_UUID);
+
+  txCharacteristic = service->createCharacteristic(
+    CHARACTERISTIC_UUID,
+    BLECharacteristic::PROPERTY_NOTIFY
+  );
+
+  txCharacteristic->addDescriptor(new BLE2902());
+  service->start();
+
+  BLEAdvertising* advertising = BLEDevice::getAdvertising();
+  advertising->addServiceUUID(SERVICE_UUID);
+  advertising->start();
+
+  Serial.println("BLE Sender ready");
+}
+
+void loop() {
+  txCharacteristic->setValue("Hello World");
+  txCharacteristic->notify();
+  Serial.println("Sent: Hello World");
+  delay(1000);
+}
